@@ -28,7 +28,7 @@
         },
         {
           "comp":"second-ringer",
-          "script":"https://kevsimps.github.io/second-ringer/dist/index.js"
+          "script":"https://intranet.corp.conwy.gov.uk/edge-extensions/wxcc-second-ringer-widget/index.js"
         },
         {
           "comp": "ai-assistant"
