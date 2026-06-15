@@ -1,120 +1,183 @@
 import { LitElement, html, css } from "lit";
-import { customElement, query, state } from "lit/decorators.js"
-import "./assets/ring.mp3"
+import { customElement, query, state } from "lit/decorators.js";
+import "./assets/ring.mp3";
 // import "@wxcc-desktop/sdk"
 @customElement("second-ringer")
 export class SecondRinger extends LitElement {
-    @state() audioDevices1: any = []
-    @state() hideMe = true
-    @state() isActive = false
-    @query("#ring") hmm!: HTMLAudioElement
+    @state() audioDevices1: any = [];
+    @state() hideMe = true;
+    @state() isActive = false;
+    @state() selectedDeviceId: string | null = null;
+    @query("#ring") hmm!: HTMLAudioElement;
     static styles = [
         css`
             :host {
                 display: block;
-                               
+                font-family: var(--brand-font-regular);
             }
-            .watermark {
-                position: absolute; /* Positions the watermark relative to the .container */
-                top: 0%;
-                left: 10%;
-                /* transform: translate(-50%, -50%) rotate(-45deg); Centers and rotates the text */
-                font-size: 3em; /* Adjust as needed */
-                color: rgba(255, 0, 0, 0.5); /* Semi-transparent black */
-                pointer-events: none; /* Prevents interaction with the watermark */
-                user-select: none; /* Prevents text selection */
-                z-index: 50; /* Ensures it's behind the main content */
-                white-space: nowrap; /* Prevents text from wrapping */
-                
-            }
-            .container{
-                position: relative;
+            .container {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                padding: 1rem;
                 border: solid black;
                 border-radius: 12px;
-                overflow:hidden;
-                z-index:99;
-                background-color: rgba(5, 5, 5, 0.5)
-
+                overflow: hidden;
+                z-index: 99;
+                background-color: rgba(5, 5, 5, 0.5);
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
             }
-            .hidden{
-                display:none;
+            .hidden {
+                display: none;
             }
-            .bump{
-                margin-top:12%;
+            .ringer-button {
+                float: right;
             }
-
-        `
+            button {
+                padding: 0.3rem 0.75rem;
+                border: none;
+                background: black;
+                font-weight: bold;
+                font-family: var(--brand-font-bold);
+                font-weight: var(--brand-font-weight-bold);
+                background-color: var(--tabs-primary-bg-color);
+                color: var(--tabs-primary-text-color);
+                box-shadow: inset 0 0 0 0 var(--tabs-default-active-border);
+                border-radius: 0.5rem;
+                cursor: pointer;
+                user-select: none;
+            }
+            select {
+                padding: 0.5rem;
+                background-color: var(--button-idle-bg-color);
+                color: var(--button-secondary-text-color);
+                border: 1px solid var(--button-idle-border-color);
+                border-radius: 0.5rem;
+            }
+            .top-container,
+            .bottom-container {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+        `,
     ];
     async connectedCallback() {
-        super.connectedCallback()
-        this.populateAudio()
-        window.AGENTX_SERVICE.aqm.contact.eAgentOfferContact.listen(this.testEm.bind(this))
-        window.AGENTX_SERVICE.aqm.contact.eAgentOfferConsult.listen(this.testEm.bind(this))
-        window.AGENTX_SERVICE.aqm.contact.eAgentContactAssigned.listen(this.stopEm.bind(this))
-        window.AGENTX_SERVICE.aqm.contact.eAgentContactEnded.listen(this.stopEm.bind(this))
-        window.AGENTX_SERVICE.aqm.contact.eAgentOfferContactRona.listen(this.stopEm.bind(this))
-        window.AGENTX_SERVICE.aqm.contact.eAgentConsulting.listen(this.stopEm.bind(this))
+        super.connectedCallback();
 
+        this.populateAudio();
+        window.AGENTX_SERVICE.aqm.contact.eAgentOfferContact.listen(() => {
+            console.warn("eAgentOfferContact triggered the playing of sound");
+            this.playSound();
+        });
+        window.AGENTX_SERVICE.aqm.contact.eAgentOfferConsult.listen(() => {
+            console.warn("eAgentOfferConsult triggered the playing of sound");
+            this.playSound();
+        });
+        window.AGENTX_SERVICE.aqm.contact.eAgentContactAssigned.listen(() => {
+            this.stopSound();
+        });
+        window.AGENTX_SERVICE.aqm.contact.eAgentContactEnded.listen(() => {
+            this.stopSound();
+        });
+        window.AGENTX_SERVICE.aqm.contact.eAgentOfferContactRona.listen(() => {
+            this.stopSound();
+        });
+        window.AGENTX_SERVICE.aqm.contact.eAgentConsulting.listen(() => {
+            this.stopSound();
+        });
     }
-
+    async firstUpdated() {
+        // get the persisted state from localStorage
+        const selectedId = localStorage.getItem("secondaryRingerSelectedId");
+        if (selectedId && this.hmm) {
+            this.hmm.setSinkId(selectedId);
+            this.selectedDeviceId = selectedId;
+        }
+        const isActive = localStorage.getItem("secondaryRingerIsActive");
+        if (isActive === "true") this.isActive = true;
+        // ------------------------------------
+    }
     populateAudio() {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-        this.listAudioDevices()
+        navigator.mediaDevices.getUserMedia({ audio: true });
+        this.listAudioDevices();
     }
-
     _handleSelect(event: any) {
-        this.hmm.setSinkId(event.target.value)
-
+        // persist to localStorage
+        localStorage.setItem("secondaryRingerSelectedId", event.target.value);
+        // update local state
+        this.selectedDeviceId = event.target.value;
+        this.hmm.setSinkId(event.target.value);
     }
-    testEm() {
-        console.log("Ring Ring Ring")
+    _handleIsActive() {
+        const newState = !this.isActive;
+        this.isActive = newState;
+        localStorage.setItem("secondaryRingerIsActive", newState.toString());
+    }
+    playSound() {
         if (this.isActive) {
-            this.hmm.play()
+            this.hmm.play();
         }
     }
-    stopEm() {
-        this.hmm.load()
+    stopSound() {
+        this.hmm.load();
     }
     async listAudioDevices() {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
-            const audioDevices = devices.filter(device => device.kind === 'audiooutput');
-            this.audioDevices1 = audioDevices.map((d: any) => html`<option value=${d.deviceId}>${d.label}</option>`)
-
-            if (audioDevices.length > 0) {
-                console.log('Available audio devices:');
-                audioDevices.forEach(device => {
-                    console.log(`  - Label: ${device.label || 'Unknown Device'}`);
-                    console.log(`    Kind: ${device.kind}`);
-                    console.log(`    Device ID: ${device.deviceId}`);
-                    console.log(`    Group ID: ${device.groupId}`);
-                });
-            } else {
-                console.log('No audio devices found.');
-                this.populateAudio()
+            const audioDevices = devices.filter(
+                (device) =>
+                    device.kind === "audiooutput" &&
+                    device.deviceId !== "default" &&
+                    device.deviceId !== "communications",
+            );
+            this.audioDevices1 = audioDevices.map(
+                (d: any) =>
+                    html`<option
+                        value=${d.deviceId}
+                        ?selected=${d.deviceId === this.selectedDeviceId}
+                    >
+                        ${d.label}
+                    </option>`,
+            );
+            if (audioDevices.length === 0) {
+                this.populateAudio();
             }
         } catch (error) {
-            console.error('Error enumerating devices:', error);
+            console.error("Error enumerating devices:", error);
         }
     }
     render() {
         return html`
-        <div class=${(this.hideMe ? "" : "bump")}>
-            <button style="float: right;" @click=${() => this.hideMe = !this.hideMe}>Second Ringer</button>
+            <button
+                class="ringer-button"
+                @click=${() => (this.hideMe = !this.hideMe)}
+            >
+                Second Ringer
+            </button>
             <div class=${"container" + (this.hideMe ? " hidden" : "")}>
-            <audio id="ring" src = "https://kevsimps.github.io/second-ringer/dist/ring.mp3" type="audio/mp3" controls loop></audio>
-            <!-- <audio id="ring" src = "http://localhost:4173/ring.mp3" controls loop></audio> -->
-            <button @click=${() => this.isActive = !this.isActive}>${(this.isActive) ? "Enabled" : "Disabled"}</button>
-            <br>
-            <select @change=${this._handleSelect}>
-                ${this.audioDevices1}
-            </select>
-            <button @click="${this.listAudioDevices}">Load</button>
-            <br>
-            <!-- <button @click="${this.testEm}">Test IT</button> 
-            <button @click="${this.stopEm}">Stop IT</button> -->
-            <div class="watermark">Demo Only</div>
-            </div>
+                <div class="top-container">
+                    <audio
+                        id="ring"
+                        src="https://intranet.corp.conwy.gov.uk/edge-extensions/wxcc-second-ringer-widget/dist/ring.mp3"
+                        type="audio/mp3"
+                        controls
+                        loop
+                    ></audio>
+                    <button @click=${this._handleIsActive}>
+                        ${this.isActive ? "Enabled" : "Disabled"}
+                    </button>
+                </div>
+                <div class="bottom-container">
+                    <select @change=${this._handleSelect}>
+                        ${this.audioDevices1}
+                    </select>
+                    <button @click="${this.listAudioDevices}">Load</button>
+                </div>
             </div>
         `;
     }
