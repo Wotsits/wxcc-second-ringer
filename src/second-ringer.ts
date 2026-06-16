@@ -15,7 +15,7 @@ export class SecondRinger extends LitElement {
                 display: block;
                 font-family: var(--brand-font-regular);
             }
-            .container {
+            .modal__container {
                 position: absolute;
                 top: 50%;
                 left: 50%;
@@ -33,8 +33,26 @@ export class SecondRinger extends LitElement {
             .hidden {
                 display: none;
             }
-            .ringer-button {
-                float: right;
+            .modal__header-container {
+                display: flex;
+                justify-content: space-between;
+            }
+            .modal__title {
+                margin-top: 0;
+                margin-bottom: 0;
+                color: white;
+                font-size: large;
+                font-weight: bold;
+            }
+            .modal__close-svg path {
+                fill: var(--tabs-primary-text-color);
+            }
+            .modal__top-container,
+            .modal__bottom-container {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
             }
             button {
                 padding: 0.3rem 0.75rem;
@@ -57,27 +75,24 @@ export class SecondRinger extends LitElement {
                 border: 1px solid var(--button-idle-border-color);
                 border-radius: 0.5rem;
             }
-            .top-container,
-            .bottom-container {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 1rem;
-            }
         `,
     ];
     async connectedCallback() {
         super.connectedCallback();
 
         this.populateAudio();
-        window.AGENTX_SERVICE.aqm.contact.eAgentOfferContact.listen(() => {
-            console.warn("eAgentOfferContact triggered the playing of sound");
-            this.playSound();
-        });
-        window.AGENTX_SERVICE.aqm.contact.eAgentOfferConsult.listen(() => {
-            console.warn("eAgentOfferConsult triggered the playing of sound");
-            this.playSound();
-        });
+        window.AGENTX_SERVICE.aqm.contact.eAgentOfferContact.listen(
+            (event: any) => {
+                if (event.data.interaction.contactDirection.type === "INBOUND")
+                    this.playSound();
+            },
+        );
+        window.AGENTX_SERVICE.aqm.contact.eAgentOfferConsult.listen(
+            (event: any) => {
+                if (event.data.interaction.contactDirection.type === "INBOUND")
+                    this.playSound();
+            },
+        );
         window.AGENTX_SERVICE.aqm.contact.eAgentContactAssigned.listen(() => {
             this.stopSound();
         });
@@ -159,11 +174,31 @@ export class SecondRinger extends LitElement {
             >
                 Second Ringer
             </button>
-            <div class=${"container" + (this.hideMe ? " hidden" : "")}>
-                <div class="top-container">
+            <div class=${"modal__container" + (this.hideMe ? " hidden" : "")}>
+                <div class="modal__header-container">
+                    <p class="modal__title">Second Ringer Configuration</p>
+                    <button
+                        class="modal__close-button"
+                        @click=${() => (this.hideMe = true)}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 384 512"
+                            height="20px"
+                            width="auto"
+                            class="modal__close-svg"
+                        >
+                            <!--!Font Awesome Free v7.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.-->
+                            <path
+                                d="M376.6 84.5c11.3-13.6 9.5-33.8-4.1-45.1s-33.8-9.5-45.1 4.1L192 206 56.6 43.5C45.3 29.9 25.1 28.1 11.5 39.4S-3.9 70.9 7.4 84.5L150.3 256 7.4 427.5c-11.3 13.6-9.5 33.8 4.1 45.1s33.8 9.5 45.1-4.1L192 306 327.4 468.5c11.3 13.6 31.5 15.4 45.1 4.1s15.4-31.5 4.1-45.1L233.7 256 376.6 84.5z"
+                            />
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal__top-container">
                     <audio
                         id="ring"
-                        src="https://intranet.corp.conwy.gov.uk/edge-extensions/wxcc-second-ringer-widget/dist/ring.mp3"
+                        src="https://intranet.corp.conwy.gov.uk/edge-extensions/wxcc-second-ringer-widget/ring.mp3"
                         type="audio/mp3"
                         controls
                         loop
@@ -172,7 +207,7 @@ export class SecondRinger extends LitElement {
                         ${this.isActive ? "Enabled" : "Disabled"}
                     </button>
                 </div>
-                <div class="bottom-container">
+                <div class="modal__bottom-container">
                     <select @change=${this._handleSelect}>
                         ${this.audioDevices1}
                     </select>
