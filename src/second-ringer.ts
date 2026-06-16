@@ -8,7 +8,9 @@ export class SecondRinger extends LitElement {
     @state() hideMe = true;
     @state() isActive = false;
     @state() selectedDeviceId: string | null = null;
+
     @query("#ring") hmm!: HTMLAudioElement;
+
     static styles = [
         css`
             :host {
@@ -77,6 +79,11 @@ export class SecondRinger extends LitElement {
             }
         `,
     ];
+
+    /*
+     * Called on component mount.
+     * Listens to various events emitted by Webex and triggers playSound and stopSound.
+     */
     async connectedCallback() {
         super.connectedCallback();
 
@@ -93,6 +100,11 @@ export class SecondRinger extends LitElement {
                     this.playSound();
             },
         );
+        window.AGENTX_SERVICE.aqm.contact.eAgentContactAssignFailed.listen(
+            () => {
+                this.stopSound();
+            },
+        );
         window.AGENTX_SERVICE.aqm.contact.eAgentContactAssigned.listen(() => {
             this.stopSound();
         });
@@ -106,8 +118,12 @@ export class SecondRinger extends LitElement {
             this.stopSound();
         });
     }
+
+    /*
+     * Called immediately after component mount.
+     * Gets the persisted state from localStorage.
+     */
     async firstUpdated() {
-        // get the persisted state from localStorage
         const selectedId = localStorage.getItem("secondaryRingerSelectedId");
         if (selectedId && this.hmm) {
             this.hmm.setSinkId(selectedId);
@@ -115,32 +131,42 @@ export class SecondRinger extends LitElement {
         }
         const isActive = localStorage.getItem("secondaryRingerIsActive");
         if (isActive === "true") this.isActive = true;
-        // ------------------------------------
     }
+
     populateAudio() {
         navigator.mediaDevices.getUserMedia({ audio: true });
         this.listAudioDevices();
     }
-    _handleSelect(event: any) {
+
+    handleSelect(event: any) {
         // persist to localStorage
         localStorage.setItem("secondaryRingerSelectedId", event.target.value);
         // update local state
         this.selectedDeviceId = event.target.value;
         this.hmm.setSinkId(event.target.value);
     }
-    _handleIsActive() {
+
+    handleIsActive() {
         const newState = !this.isActive;
-        this.isActive = newState;
+        // persist to localStorage
         localStorage.setItem("secondaryRingerIsActive", newState.toString());
+        // update local state
+        this.isActive = newState;
     }
+
     playSound() {
         if (this.isActive) {
             this.hmm.play();
         }
     }
+
     stopSound() {
-        this.hmm.load();
+        if (this.hmm) {
+            this.hmm.pause();
+            this.hmm.currentTime = 0;
+        }
     }
+
     async listAudioDevices() {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
@@ -166,6 +192,7 @@ export class SecondRinger extends LitElement {
             console.error("Error enumerating devices:", error);
         }
     }
+
     render() {
         return html`
             <button
@@ -203,12 +230,12 @@ export class SecondRinger extends LitElement {
                         controls
                         loop
                     ></audio>
-                    <button @click=${this._handleIsActive}>
+                    <button @click=${this.handleIsActive}>
                         ${this.isActive ? "Enabled" : "Disabled"}
                     </button>
                 </div>
                 <div class="modal__bottom-container">
-                    <select @change=${this._handleSelect}>
+                    <select @change=${this.handleSelect}>
                         ${this.audioDevices1}
                     </select>
                     <button @click="${this.listAudioDevices}">Load</button>
